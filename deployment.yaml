@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iris-classifier-deployment
+spec:
+  replicas: 2                      # 起2个副本,模拟高可用
+  selector:
+    matchLabels:
+      app: iris-classifier
+  template:
+    metadata:
+      labels:
+        app: iris-classifier
+    spec:
+      containers:
+        - name: iris-classifier
+          image: iris-classifier:v1
+          imagePullPolicy: Never   # 关键:告诉K8s用本地镜像,不要去远程仓库拉取
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:               # 申请的最小资源
+              cpu: "100m"
+              memory: "128Mi"
+            limits:                 # 资源上限
+              cpu: "500m"
+              memory: "256Mi"

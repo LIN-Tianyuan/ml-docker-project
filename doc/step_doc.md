@@ -131,3 +131,66 @@ curl -X POST http://127.0.0.1:8000/predict \
   -d '{"sepal_length": 6.3, "sepal_width": 3.3, "petal_length": 6.0, "petal_width": 2.5}'
 # virginica
 ```
+
+### 11. First, clear the local containers (to avoid port conflicts).
+```bash
+docker stop iris-api
+docker rm iris-api
+```
+
+### 12. Load the image into minikube
+Since Minikube is a standalone Docker environment, 
+it cannot see the images we’ve built locally; 
+need to manually load them into it:
+```bash
+minikube image load iris-classifier:v1
+```
+```bash
+minikube image ls | grep iris-classifier
+# If can see the mirror name, it means the mirror has loaded successfully.
+```
+
+### 13. Create a Deployment configuration file
+```bash
+# deployment.yaml
+```
+`replicas: 2`: 
+ - Starts 2 Pod replicas so that the service can continue even if one fails; this is the foundation of K8s “high availability.” 
+
+`imagePullPolicy: Never`: 
+ - Since we’re loading the image locally rather than pulling it from a remote repository like Docker Hub, we must explicitly declare this; otherwise, K8s will report an error stating that the image cannot be found.
+
+`resources.requests/limits`: 
+ - GPU/resource pool optimization — each container declares how many resources it needs, and K8s uses this information for scheduling
+### 14. Create a Service Configuration File
+```bash
+service.yaml
+```
+ - Deployment manages Pods (where containers actually run), but a Pod’s IP address is dynamic and unstable. 
+
+ - A Service provides a stable access point for this group of Pods and automatically performs load balancing, distributing requests across the two replicas.
+
+### 15. Deploy to the cluster
+```bash
+kubectl apply -f deployment.yaml
+kubectl apply -f service.yaml
+```
+Check Status:
+```bash
+kubectl get pods
+
+NAME                                          READY   STATUS    RESTARTS   AGE
+iris-classifier-deployment-5576fbf75f-nxfls   1/1     Running   0          20s
+iris-classifier-deployment-5576fbf75f-xkltd   1/1     Running   0          20s
+
+kubectl get deployments
+
+NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+iris-classifier-deployment   2/2     2            2           31s
+
+kubectl get services
+
+(venv) (base) ningmenmaodeMBP:ml-docker-project citron$ kubectl get services
+NAME                      TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+iris-classifier-service   NodePort    10.99.246.34   <none>        8000:30080/TCP   29s
+```
