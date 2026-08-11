@@ -31,7 +31,7 @@ def predict(features: IrisFeatures):
     ]])
     prediction = model.predict(data)
     species = ["setosa", "versicolor", "virginica"]
-    return {"prediction": species[int(prediction[0])]}
+    return {"prediction": species[int(prediction[0])], "model_version": "v2"}
 
 # uvicorn app:app --reload --port 8000
 

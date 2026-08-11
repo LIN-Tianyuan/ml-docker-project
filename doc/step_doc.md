@@ -39,7 +39,8 @@ minikube start
 kubectl get nodes
 # Should see a node with a status of “Ready.”
 ```
-## Train the model → Package it as an API → Build a Docker image
+## Docker + Kubernetes
+Train the model → Package it as an API → Build a Docker image
 ### 1. Create a project directory
 ```bash
 mkdir -p ~/ml-docker-project
@@ -194,3 +195,73 @@ kubectl get services
 NAME                      TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
 iris-classifier-service   NodePort    10.99.246.34   <none>        8000:30080/TCP   29s
 ```
+
+ - The complete workflow: train the model → wrap it as an API → containerize it using Docker → deploy it to Kubernetes → expose it as a service for access. 
+ - The core framework of MLOps.
+### 16. Creating a “New Version”
+
+ - Straightforward change to the API by adding a version number field to simulate the release of a new version:
+```python
+# app.py
+@app.post("/predict")
+def predict(features: IrisFeatures):
+    data = np.array([[
+        features.sepal_length,
+        features.sepal_width,
+        features.petal_length,
+        features.petal_width
+    ]])
+    prediction = model.predict(data)
+    species = ["setosa", "versicolor", "virginica"]
+    return {"prediction": species[int(prediction[0])], "model_version": "v2"}
+```
+
+### 17. Build a new image (tag it as v2)
+```bash
+docker build -t iris-classifier:v2 .
+minikube image load iris-classifier:v2
+```
+
+### 18. Update the Deployment Image Version
+
+Update it directly via the command line (which more closely resembles a real CI/CD scenario):
+```bash
+kubectl set image deployment/iris-classifier-deployment iris-classifier=iris-classifier:v2
+```
+
+### 19. Watch the rolling update process in real time
+Run this command now and observe the changes to the Pods:
+```bash
+kubectl rollout status deployment/iris-classifier-deployment
+```
+
+Open another terminal window and run the following commands quickly several times in a row:
+```bash
+kubectl get pods
+```
+
+ - As the old Pods(v1) are gradually shut down and the new Pods(v2) are gradually started up, at least one Pod remains running throughout the entire process.
+ - The principle behind "zero downtime updates."
+
+### 20. View Update History and Roll Back
+In a real production environment, “After a new version goes live, we discover an issue and need to roll back immediately.”
+```bash
+kubectl rollout history deployment/iris-classifier-deployment
+```
+
+Roll back to the previous version
+```bash
+kubectl rollout undo deployment/iris-classifier-deployment
+```
+
+Test the API again, the `model_version` field is gone (indicating that it has reverted to v1):
+```bash
+curl -X POST http://127.0.0.1:50748/predict -H "Content-Type: application/json" -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}'
+```
+
+### 21. Conclusion
+ - Trained a classification model
+ - Wrapped it as a service using FastAPI
+ - Wrote a Dockerfile to containerize it
+ - Deployed it to Kubernetes and configured two replicas for high availability
+ - Conducted rolling updates and rollback drills.
